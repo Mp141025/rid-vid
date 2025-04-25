@@ -1,20 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <title>Riddle Reveal</title>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       overflow: hidden;
-      background: linear-gradient(-45deg, #a8edea, #fed6e3, #fcb69f, #ffecd2);
-      background-size: 400% 400%;
-      animation: gradientMove 15s ease infinite;
+      height: 100%;
       transition: background 2s ease-in-out;
     }
 
-    @keyframes gradientMove {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+    canvas {
+      display: block;
+      position: fixed;
+      z-index: 0;
+    }
+
+    #emojis {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
     }
 
     .emoji {
@@ -28,10 +39,6 @@
       50% { transform: translateY(-50px) rotate(10deg); }
     }
 
-    canvas {
-      display: block;
-    }
-
     .text {
       position: absolute;
       top: 50%;
@@ -43,6 +50,7 @@
       width: 80%;
       font-size: 6vw;
       line-height: 1.5;
+      z-index: 2;
     }
 
     #nextBtn {
@@ -60,10 +68,7 @@
       opacity: 0;
       transition: opacity 1s ease;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-
-    #nextBtn:hover {
-      background-color: #ffffff;
+      z-index: 2;
     }
 
     #darkToggle {
@@ -77,10 +82,11 @@
       font-size: 24px;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 2;
     }
 
     body.dark {
-      background: #1e1e1e;
+      background: #1e1e1e !important;
       color: #eee;
     }
 
@@ -90,6 +96,14 @@
 
     body.dark #nextBtn {
       background-color: #333333cc;
+    }
+
+    .animated-answer {
+      text-shadow: 0 0 10px #fff, 0 0 20px #ff4081, 0 0 30px #ff4081;
+      transition: all 0.3s ease-in-out;
+      font-size: 4vw;
+      font-weight: bold;
+      color: #ff4081;
     }
 
     @keyframes confetti-fall {
@@ -109,7 +123,6 @@
   <audio id="revealSound" src="https://www.myinstants.com/media/sounds/ting-sound-effect.mp3"></audio>
 
   <script>
-    // ====== BACKGROUND CANVAS SETUP ======
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let width, height;
@@ -138,126 +151,112 @@
       requestAnimationFrame(animateBackground);
     }
 
-    // ====== EMOJIS ======
-    function spawnEmojis() {
-      const container = document.getElementById('emojis');
-      container.innerHTML = '';
-      const emojiSet = ['🧪', '🔬', '🌱', '🧬', '⚗️', '🦠', '🧫', '🌡️', '🧠', '💉', '💡', '⚛️', '🌌'];
-      for (let i = 0; i < 8 + Math.floor(Math.random() * 4); i++) {
-        const emoji = document.createElement('div');
-        emoji.className = 'emoji';
-        emoji.textContent = emojiSet[Math.floor(Math.random() * emojiSet.length)];
-        emoji.style.left = `${Math.random() * 100}%`;
-        emoji.style.top = `${Math.random() * 100}%`;
-        emoji.style.animationDelay = `${Math.random() * 5}s`;
-        emoji.style.fontSize = `${60 + Math.random() * 40}px`;
-        emoji.style.opacity = `${0.5 + Math.random() * 0.5}`;
-        emoji.style.animationDuration = `${6 + Math.random() * 6}s`;
-        container.appendChild(emoji);
-      }
-    }
-
-    // ====== BACKGROUND COLOR CHANGE ======
-    function randomGradient() {
-      const gradients = [
-        ['#a8edea', '#fed6e3', '#fcb69f', '#ffecd2'],
-        ['#ff9a9e', '#fad0c4', '#fbc2eb', '#a18cd1'],
-        ['#ffecd2', '#fcb69f', '#a1c4fd', '#c2e9fb'],
-        ['#d4fc79', '#96e6a1', '#f6d365', '#fda085'],
-        ['#fbc2eb', '#a6c1ee', '#ffdde1', '#ee9ca7']
-      ];
-      const combo = gradients[Math.floor(Math.random() * gradients.length)];
-      document.body.style.background = `linear-gradient(-45deg, ${combo.join(', ')})`;
-      document.body.style.backgroundSize = '400% 400%';
-    }
-
-    // ====== RIDDLES ======
-    const riddles = [
-      { 
-        q: "एक चीज़ ऐसी है भाई, खाली हो तो भारी, भरी हो तो हल्की।", 
-        a: "गुब्बारा" 
+    const themes = [
+      {
+        bg: 'linear-gradient(-45deg, #a8edea, #fed6e3, #fcb69f, #ffecd2)',
+        emojis: ['🧪', '🔬', '🌱', '🧬', '⚗️', '🦠']
       },
-      { 
-        q: "पीता नहीं, फिर भी मर जाता, हवा न मिले तो।", 
-        a: "मोमबत्ती" 
+      {
+        bg: 'linear-gradient(60deg, #ff9a9e, #fad0c4, #fad0c4)',
+        emojis: ['🎉', '✨', '💫', '🌟', '🎈', '🎊']
       },
-      { 
-        q: "देखने में लाल, खाने में मीठा, अंदर से काला, बीज है छोटा।", 
-        a: "तरबूज" 
+      {
+        bg: 'linear-gradient(180deg, #e0c3fc 0%, #8ec5fc 100%)',
+        emojis: ['🌈', '🦄', '🫧', '☁️', '🕊️', '💎']
       },
-      { 
-        q: "बिना धड़कन के जीता हूँ, बिना फेफड़ों के साँस लेता हूँ।", 
-        a: "पेड़-पौधे" 
-      },
-      { 
-        q: "चलता हूँ बिना पैर के, बताओ मैं कौन हूँ?", 
-        a: "घड़ी" 
-      },
-      { 
-        q: "एक है ऐसी चीज़, जो गर्मी में बढ़ती है, सर्दी में घटती है।", 
-        a: "पारा / Mercury in thermometer" 
-      },
-      { 
-        q: "न होते हुए भी दिखता, छूने से टूट जाता।", 
-        a: "परछाई" 
-      },
-      { 
-        q: "एक मंदिर है ऐसा, जिसमें देवता नहीं, फिर भी पूजा होती है।", 
-        a: "दंत मंदिर / दाँत" 
-      },
-      { 
-        q: "एक बूँद में डूब मरूँ, समुंदर में तैरता फिरूँ।", 
-        a: "नमक" 
-      },
-      { 
-        q: "हरी है पर सब्जी नहीं, पत्ते हैं पर पेड़ नहीं, फूल हैं पर गंध नहीं।", 
-        a: "पत्तागोभी" 
-      },
-      { 
-        q: "घर का नाम ऐसा, जिसमें रहते सभी, पर कोई नहीं रहता।", 
-        a: "पता / Address" 
-      },
-      { 
-        q: "चलती है बिना पैर के, काटती है बिना दाँत के।", 
-        a: "घड़ी" 
-      },
-      { 
-        q: "एक बेटी ऐसी, जो माँ से पहले पैदा होती है।", 
-        a: "अंडा" 
-      },
-      { 
-        q: "दिन में आँख खोलती है, रात में सो जाती है।", 
-        a: "कमल का फूल" 
-      },
-      { 
-        q: "एक छोटा सा जहाज, जिसमें बैठे हज़ार।", 
-        a: "अनार" 
-      },
-      { 
-        q: "हवा में उड़ता फिरे, पकड़ो तो मर जाए।", 
-        a: "धुआँ" 
-      },
-      { 
-        q: "एक मेहमान ऐसा, जो बिना बुलाए आता है, और बिना जाने चला जाता है।", 
-        a: "नींद" 
-      },
-      { 
-        q: "छोटा सा दीपक, जो पूरे घर को रोशन कर दे।", 
-        a: "बिजली का बल्ब" 
-      },
-      { 
-        q: "जिसके पास सब कुछ है, पर खुद के पास कुछ नहीं।", 
-        a: "बैंक" 
-      },
-      { 
-        q: "जितना खोदो उतना गहरा, फिर भी पानी नहीं आता।", 
-        a: "कुआँ" 
-      },
-      { 
-        q: "बिना हाथ-पैर के चलता, बिना मुँह के बोलता।", 
-        a: "पत्र / चिट्ठी" 
+      {
+        bg: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+        emojis: ['🔥', '🌅', '🌞', '🍂', '🧡', '🌻']
       }
     ];
+
+const riddles = [
+ 
+  { 
+    q: "एक चीज़ ऐसी है भाई, खाली हो तो भारी, भरी हो तो हल्की।", 
+    a: "गुब्बारा" 
+  },
+  { 
+    q: "पीता नहीं, फिर भी मर जाता, हवा न मिले तो।", 
+    a: "मोमबत्ती" 
+  },
+  { 
+    q: "देखने में लाल, खाने में मीठा, अंदर से काला, बीज है छोटा।", 
+    a: "तरबूज" 
+  },
+  { 
+    q: "बिना धड़कन के जीता हूँ, बिना फेफड़ों के साँस लेता हूँ।", 
+    a: "पेड़-पौधे" 
+  },
+  { 
+    q: "चलता हूँ बिना पैर के, बताओ मैं कौन हूँ?", 
+    a: "घड़ी" 
+  },
+  { 
+    q: "एक है ऐसी चीज़, जो गर्मी में बढ़ती है, सर्दी में घटती है।", 
+    a: "पारा / Mercury in thermometer" 
+  },
+  { 
+    q: "न होते हुए भी दिखता, छूने से टूट जाता।", 
+    a: "परछाई" 
+  },
+  { 
+    q: "एक मंदिर है ऐसा, जिसमें देवता नहीं, फिर भी पूजा होती है।", 
+    a: "दंत मंदिर / दाँत" 
+  },
+  { 
+    q: "एक बूँद में डूब मरूँ, समुंदर में तैरता फिरूँ।", 
+    a: "नमक" 
+  },
+  { 
+    q: "हरी है पर सब्जी नहीं, पत्ते हैं पर पेड़ नहीं, फूल हैं पर गंध नहीं।", 
+    a: "पत्तागोभी" 
+  },
+  { 
+    q: "घर का नाम ऐसा, जिसमें रहते सभी, पर कोई नहीं रहता।", 
+    a: "पता / Address" 
+  },
+  { 
+    q: "चलती है बिना पैर के, काटती है बिना दाँत के।", 
+    a: "घड़ी" 
+  },
+  { 
+    q: "एक बेटी ऐसी, जो माँ से पहले पैदा होती है।", 
+    a: "अंडा" 
+  },
+  { 
+    q: "दिन में आँख खोलती है, रात में सो जाती है।", 
+    a: "कमल का फूल" 
+  },
+  { 
+    q: "एक छोटा सा जहाज, जिसमें बैठे हज़ार।", 
+    a: "अनार" 
+  },
+  { 
+    q: "हवा में उड़ता फिरे, पकड़ो तो मर जाए।", 
+    a: "धुआँ" 
+  },
+  { 
+    q: "एक मेहमान ऐसा, जो बिना बुलाए आता है, और बिना जाने चला जाता है।", 
+    a: "नींद" 
+  },
+  { 
+    q: "छोटा सा दीपक, जो पूरे घर को रोशन कर दे।", 
+    a: "बिजली का बल्ब" 
+  },
+  { 
+    q: "जिसके पास सब कुछ है, पर खुद के पास कुछ नहीं।", 
+    a: "बैंक" 
+  },
+  { 
+    q: "जितना खोदो उतना गहरा, फिर भी पानी नहीं आता।", 
+    a: "कुआँ" 
+  },
+  { 
+    q: "बिना हाथ-पैर के चलता, बिना मुँह के बोलता।", 
+    a: "पत्र / चिट्ठी" 
+  }
+];
 
     const textDiv = document.getElementById('text');
     const nextBtn = document.getElementById('nextBtn');
@@ -277,6 +276,23 @@
       }, delay);
     }
 
+    function revealAnswer(text) {
+      const answer = document.createElement("div");
+      answer.className = "animated-answer";
+      textDiv.appendChild(answer);
+
+      let i = 0;
+      const interval = setInterval(() => {
+        answer.innerHTML += text.charAt(i);
+        i++;
+        if (i >= text.length) {
+          clearInterval(interval);
+          showConfetti();
+          revealSound.play();
+        }
+      }, 150);
+    }
+
     function showConfetti() {
       for (let i = 0; i < 40; i++) {
         const confetti = document.createElement('div');
@@ -292,34 +308,40 @@
       }
     }
 
-    function showRiddle(index) {
-      randomGradient();
-      spawnEmojis();
+    function spawnEmojis(emojiList) {
+      const container = document.getElementById('emojis');
+      container.innerHTML = '';
+      for (let i = 0; i < 8; i++) {
+        const emoji = document.createElement('div');
+        emoji.className = 'emoji';
+        emoji.textContent = emojiList[Math.floor(Math.random() * emojiList.length)];
+        emoji.style.left = `${Math.random() * 100}%`;
+        emoji.style.top = `${Math.random() * 100}%`;
+        emoji.style.animationDelay = `${Math.random() * 5}s`;
+        emoji.style.fontSize = `${60 + Math.random() * 40}px`;
+        emoji.style.opacity = `${0.6 + Math.random() * 0.4}`;
+        emoji.style.animationDuration = `${6 + Math.random() * 6}s`;
+        container.appendChild(emoji);
+      }
+    }
 
+    function showRiddle(index) {
       const riddle = riddles[index];
+      const theme = themes[Math.floor(Math.random() * themes.length)];
+
+      document.body.style.background = theme.bg;
+      spawnEmojis(theme.emojis);
+      textDiv.innerHTML = "";
       nextBtn.style.opacity = 0;
       nextBtn.disabled = true;
 
-      textDiv.innerHTML = "";
       typeText(textDiv, riddle.q, 80, () => {
         setTimeout(() => {
-          const answer = document.createElement("div");
-          answer.textContent = riddle.a;
-          answer.style.marginTop = "20px";
-          answer.style.opacity = 0;
-          answer.style.transition = "opacity 2s ease-in-out";
-          textDiv.appendChild(answer);
-
-          setTimeout(() => {
-            answer.style.opacity = 1;
-            revealSound.play();
-            showConfetti();
-          }, 100);
-
+          revealAnswer(riddle.a);
           setTimeout(() => {
             nextBtn.style.opacity = 1;
             nextBtn.disabled = false;
-          }, 2000);
+          }, 2500);
         }, 20000);
       });
     }
@@ -333,12 +355,10 @@
       document.body.classList.toggle('dark');
     }
 
-    // ====== INIT ======
     function init() {
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
       animateBackground();
-      spawnEmojis();
       showRiddle(current);
     }
 
